@@ -7,6 +7,19 @@ import {
 
 export const dynamic = 'force-dynamic'
 
+async function tg(token: string, method: string, body: object) {
+  const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  return res.json()
+}
+
+function normalizePhone(raw: string): string {
+  return raw.replace(/\D/g, '')
+}
+
 export async function POST(req: Request) {
   try {
     const update = await req.json()
@@ -16,18 +29,56 @@ export async function POST(req: Request) {
 
     const adminId = cfg?.hrAdminChatId ?? ''
 
-    // /start buyrug'i
+    // /start — telefon raqam so'rash
     if (update.message?.text === '/start') {
       const tgId = String(update.message.from.id)
       const chatId = update.message.chat.id
-      const emp = await prisma.employee.findUnique({ where: { telegramId: tgId } })
 
-      if (!emp || !emp.isActive) {
-        await sendMsg(token, chatId,
-          '❌ Siz tizimda ro\'yxatdan o\'tmagan yoki faol xodim emassiz.\n\nAdmin bilan bog\'laning.')
+      const emp = await prisma.employee.findUnique({ where: { telegramId: tgId } })
+      if (emp && emp.isActive) {
+        await sendMenu(token, chatId, `Salom, <b>${emp.name}</b>! 👋\n\nQuyidagi tugmani bosing:`)
         return NextResponse.json({ ok: true })
       }
-      await sendMenu(token, chatId, `Salom, <b>${emp.name}</b>! 👋\n\nQuyidagi tugmani bosing:`)
+
+      // Telefon raqam so'rash
+      await tg(token, 'sendMessage', {
+        chat_id: chatId,
+        text: '👋 Salom! Tizimga kirish uchun telefon raqamingizni ulashing:',
+        reply_markup: {
+          keyboard: [[{ text: '📱 Telefon raqamini ulashing', request_contact: true }]],
+          one_time_keyboard: true,
+          resize_keyboard: true,
+        },
+      })
+      return NextResponse.json({ ok: true })
+    }
+
+    // Telefon raqam keldi
+    if (update.message?.contact) {
+      const tgId = String(update.message.from.id)
+      const chatId = update.message.chat.id
+      const rawPhone = update.message.contact.phone_number
+      const phone = normalizePhone(rawPhone)
+
+      const emp = await prisma.employee.findFirst({
+        where: {
+          phone: { endsWith: phone.slice(-9) },
+          isActive: true,
+        },
+      })
+
+      if (!emp) {
+        await sendMsg(token, chatId, '❌ Bu telefon raqam tizimda topilmadi.\n\nAdmin bilan bog\'laning.')
+        return NextResponse.json({ ok: true })
+      }
+
+      // TelegramId ni saqlash
+      await prisma.employee.update({
+        where: { id: emp.id },
+        data: { telegramId: tgId },
+      })
+
+      await sendMenu(token, chatId, `✅ Xush kelibsiz, <b>${emp.name}</b>!\n\nEndi siz tizimdan foydalana olasiz:`)
       return NextResponse.json({ ok: true })
     }
 
@@ -61,7 +112,7 @@ export async function POST(req: Request) {
           await sendMsg(token, chatId, '👥 Xodimlar yo\'q.')
         } else {
           const lines = emps.map((e, i) =>
-            `${i + 1}. <b>${e.name}</b>${e.position ? ` — ${e.position}` : ''}\n   ID: <code>${e.telegramId}</code>`)
+            `${i + 1}. <b>${e.name}</b>${e.position ? ` — ${e.position}` : ''}\n   📱 ${e.phone}`)
           await sendMsg(token, chatId, `👥 <b>Xodimlar (${emps.length} ta):</b>\n\n${lines.join('\n\n')}`)
         }
       }
@@ -69,7 +120,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true })
     }
 
-    // Lokatsiya xabari
+    // Lokatsiya
     if (update.message?.location) {
       const tgId = String(update.message.from.id)
       const chatId = update.message.chat.id
@@ -81,14 +132,13 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: true })
       }
 
-      // Lokatsiya tekshiruvi
       if (cfg?.officeLat && cfg?.officeLon) {
         const radius = cfg.officeRadius ?? 150
         const dist = haversineMeters(latitude, longitude, cfg.officeLat, cfg.officeLon)
         if (dist > radius) {
           await prisma.employee.update({ where: { id: emp.id }, data: { pendingAction: null } })
           await sendMenu(token, chatId,
-            `❌ <b>Siz ishxona hududida emassiz!</b>\n\n📏 Masofa: <b>${Math.round(dist)} metr</b>\n🎯 Chegara: ${Math.round(radius)} metr\n\nIshxonaga keling va qayta urinib ko\'ring.`)
+            `❌ <b>Siz ishxona hududida emassiz!</b>\n\n📏 Masofa: <b>${Math.round(dist)} metr</b>\n🎯 Chegara: ${Math.round(radius)} metr\n\nIshxonaga keling va qayta urinib ko'ring.`)
           return NextResponse.json({ ok: true })
         }
       }
@@ -102,25 +152,17 @@ export async function POST(req: Request) {
         })
         if (existing) {
           await prisma.employee.update({ where: { id: emp.id }, data: { pendingAction: null } })
-          await sendMenu(token, chatId, '⚠️ Siz allaqachon keldingiz deb belgilangansiz.\nKetayotganda "Ketdim" tugmasini bosing.')
+          await sendMenu(token, chatId, '⚠️ Siz allaqachon keldingiz deb belgilangansiz.')
           return NextResponse.json({ ok: true })
         }
-
         await prisma.attendance.create({
           data: { employeeId: emp.id, workDate: today, checkIn: now, checkInLat: latitude, checkInLon: longitude },
         })
         await prisma.employee.update({ where: { id: emp.id }, data: { pendingAction: null } })
-
         const t = formatTime(now)
-        await sendMsg(token, chatId,
-          `✅ <b>Kelish belgilandi!</b>\n\n👤 ${emp.name}\n🕐 ${t}\n📅 ${today}\n\nYaxshi ish kuni! 💪`)
+        await sendMsg(token, chatId, `✅ <b>Kelish belgilandi!</b>\n\n👤 ${emp.name}\n🕐 ${t} | 📅 ${today}\n\nYaxshi ish kuni! 💪`)
+        if (adminId) await tg(token, 'sendMessage', { chat_id: adminId, text: `✅ <b>${emp.name}</b> ishga keldi — 🕐 ${t}`, parse_mode: 'HTML' })
 
-        if (adminId) {
-          await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: adminId, text: `✅ <b>${emp.name}</b> ishga keldi — 🕐 ${t}`, parse_mode: 'HTML' }),
-          })
-        }
       } else if (emp.pendingAction === 'checkout') {
         const open = await prisma.attendance.findFirst({
           where: { employeeId: emp.id, workDate: today, checkOut: null },
@@ -128,50 +170,38 @@ export async function POST(req: Request) {
         })
         if (!open) {
           await prisma.employee.update({ where: { id: emp.id }, data: { pendingAction: null } })
-          await sendMenu(token, chatId, '⚠️ Bugun kelish belgilanmagan.\nAvval "Keldim" tugmasini bosing.')
+          await sendMenu(token, chatId, '⚠️ Bugun kelish belgilanmagan.')
           return NextResponse.json({ ok: true })
         }
-
         await prisma.attendance.update({
           where: { id: open.id },
           data: { checkOut: now, checkOutLat: latitude, checkOutLon: longitude },
         })
         await prisma.employee.update({ where: { id: emp.id }, data: { pendingAction: null } })
-
         const ci = formatTime(open.checkIn)
         const co = formatTime(now)
         const diff = now.getTime() - (open.checkIn?.getTime() ?? now.getTime())
         const h = Math.floor(diff / 3600000)
         const m = Math.floor((diff % 3600000) / 60000)
-
-        await sendMsg(token, chatId,
-          `🚪 <b>Ketish belgilandi!</b>\n\n👤 ${emp.name}\n🕐 Keldi: ${ci} | Ketdi: ${co}\n⏱ Ishladi: ${h} soat ${m} daqiqa\n\nSog' bo'ling! 👋`)
-
-        if (adminId) {
-          await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: adminId, text: `🚪 <b>${emp.name}</b> ketdi — 🕐 ${co} | ⏱ ${h}s ${m}d`, parse_mode: 'HTML' }),
-          })
-        }
+        await sendMsg(token, chatId, `🚪 <b>Ketish belgilandi!</b>\n\n👤 ${emp.name}\n🕐 Keldi: ${ci} | Ketdi: ${co}\n⏱ Ishladi: ${h}s ${m}d\n\nSog' bo'ling! 👋`)
+        if (adminId) await tg(token, 'sendMessage', { chat_id: adminId, text: `🚪 <b>${emp.name}</b> ketdi — 🕐 ${co} | ⏱ ${h}s ${m}d`, parse_mode: 'HTML' })
       }
 
       return NextResponse.json({ ok: true })
     }
 
-    // Inline tugma bosildi
+    // Inline tugmalar
     if (update.callback_query) {
       const tgId = String(update.callback_query.from.id)
       const chatId = update.callback_query.message.chat.id
       const action = update.callback_query.data as string
-
       await answerCb(token, update.callback_query.id)
 
       const emp = await prisma.employee.findUnique({ where: { telegramId: tgId } })
       if (!emp || !emp.isActive) {
-        await sendMsg(token, chatId, '❌ Siz tizimda ro\'yxatdan o\'tmagan.')
+        await sendMsg(token, chatId, '❌ Avval /start bosing va telefon raqamingizni ulashing.')
         return NextResponse.json({ ok: true })
       }
-
       if (action === 'checkin') {
         await prisma.employee.update({ where: { id: emp.id }, data: { pendingAction: 'checkin' } })
         await askLocation(token, chatId, '📍 Kelishni tasdiqlash uchun lokatsiyangizni yuboring:')

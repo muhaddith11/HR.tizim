@@ -19,7 +19,8 @@ model Settings {
 
 model Employee {
   id            String       @id @default(cuid())
-  telegramId    String       @unique
+  telegramId    String?      @unique
+  phone         String       @unique
   name          String
   position      String?
   isActive      Boolean      @default(true)

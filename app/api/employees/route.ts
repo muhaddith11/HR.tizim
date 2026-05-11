@@ -14,14 +14,15 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const { telegramId, name, position } = await req.json()
-    if (!telegramId || !name) {
-      return NextResponse.json({ error: 'telegramId va name majburiy' }, { status: 400 })
+    const { phone, name, position } = await req.json()
+    if (!phone || !name) {
+      return NextResponse.json({ error: 'Telefon va ism majburiy' }, { status: 400 })
     }
+    const cleanPhone = phone.replace(/\D/g, '')
     const emp = await prisma.employee.upsert({
-      where: { telegramId: String(telegramId) },
+      where: { phone: cleanPhone },
       update: { name, position: position || null, isActive: true },
-      create: { telegramId: String(telegramId), name, position: position || null },
+      create: { phone: cleanPhone, name, position: position || null },
     })
     return NextResponse.json(emp)
   } catch (err: unknown) {
