@@ -40,7 +40,7 @@ export async function getSettings(): Promise<BotConfig> {
     hrAdminChatId: db?.hrAdminChatId ?? process.env.ADMIN_ID     ?? null,
     officeLat:     db?.officeLat     ?? (process.env.OFFICE_LAT  ? parseFloat(process.env.OFFICE_LAT)  : null),
     officeLon:     db?.officeLon     ?? (process.env.OFFICE_LON  ? parseFloat(process.env.OFFICE_LON)  : null),
-    officeRadius:  db?.officeRadius  ?? (process.env.OFFICE_RADIUS ? parseFloat(process.env.OFFICE_RADIUS) : 150),
+    officeRadius:  db?.officeRadius  ?? (process.env.OFFICE_RADIUS ? parseFloat(process.env.OFFICE_RADIUS) : 100),
   }
 }
 

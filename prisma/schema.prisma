@@ -14,7 +14,7 @@ model Settings {
   hrAdminChatId String?
   officeLat     Float?
   officeLon     Float?
-  officeRadius  Float   @default(150)
+  officeRadius  Float   @default(100)
 }
 
 model Employee {
