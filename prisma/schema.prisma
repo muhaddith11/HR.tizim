@@ -1,0 +1,43 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Settings {
+  id            String  @id @default("default")
+  hrBotToken    String?
+  hrAdminChatId String?
+  officeLat     Float?
+  officeLon     Float?
+  officeRadius  Float   @default(150)
+}
+
+model Employee {
+  id            String       @id @default(cuid())
+  telegramId    String       @unique
+  name          String
+  position      String?
+  isActive      Boolean      @default(true)
+  pendingAction String?
+  createdAt     DateTime     @default(now())
+  attendances   Attendance[]
+}
+
+model Attendance {
+  id          String    @id @default(cuid())
+  employeeId  String
+  employee    Employee  @relation(fields: [employeeId], references: [id])
+  workDate    String
+  checkIn     DateTime?
+  checkOut    DateTime?
+  checkInLat  Float?
+  checkInLon  Float?
+  checkOutLat Float?
+  checkOutLon Float?
+  createdAt   DateTime  @default(now())
+}
