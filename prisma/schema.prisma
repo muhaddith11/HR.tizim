@@ -40,5 +40,6 @@ model Attendance {
   checkInLon  Float?
   checkOutLat Float?
   checkOutLon Float?
+  isLate      Boolean   @default(false)
   createdAt   DateTime  @default(now())
 }

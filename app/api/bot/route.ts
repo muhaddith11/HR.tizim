@@ -155,8 +155,11 @@ export async function POST(req: Request) {
           await sendMenu(token, chatId, '⚠️ Siz allaqachon keldingiz deb belgilangansiz.')
           return NextResponse.json({ ok: true })
         }
+        const tashkentHour = (now.getUTCHours() + 5) % 24
+        const tashkentMin = now.getUTCMinutes()
+        const isLate = tashkentHour > 9 || (tashkentHour === 9 && tashkentMin >= 30)
         await prisma.attendance.create({
-          data: { employeeId: emp.id, workDate: today, checkIn: now, checkInLat: latitude, checkInLon: longitude },
+          data: { employeeId: emp.id, workDate: today, checkIn: now, checkInLat: latitude, checkInLon: longitude, isLate },
         })
         await prisma.employee.update({ where: { id: emp.id }, data: { pendingAction: null } })
         const t = formatTime(now)
