@@ -158,12 +158,16 @@ export async function POST(req: Request) {
         const tashkentHour = (now.getUTCHours() + 5) % 24
         const tashkentMin = now.getUTCMinutes()
         const isLate = tashkentHour > 9 || (tashkentHour === 9 && tashkentMin >= 30)
+        const lateMinutes = isLate ? (tashkentHour * 60 + tashkentMin) - (9 * 60 + 30) : 0
         await prisma.attendance.create({
           data: { employeeId: emp.id, workDate: today, checkIn: now, checkInLat: latitude, checkInLon: longitude, isLate },
         })
         await prisma.employee.update({ where: { id: emp.id }, data: { pendingAction: null } })
         const t = formatTime(now)
-        await sendMsg(token, chatId, `✅ <b>Kelish belgilandi!</b>\n\n👤 ${emp.name}\n🕐 ${t} | 📅 ${today}\n\nYaxshi ish kuni! 💪`)
+        const lateMsg = isLate
+          ? `\n⚠️ Kechikish: <b>${Math.floor(lateMinutes / 60) > 0 ? `${Math.floor(lateMinutes / 60)} soat ` : ''}${lateMinutes % 60} daqiqa</b>`
+          : '\n✅ O\'z vaqtida keldingiz!'
+        await sendMsg(token, chatId, `✅ <b>Kelish belgilandi!</b>\n\n👤 ${emp.name}\n🕐 ${t} | 📅 ${today}${lateMsg}`)
         if (adminId) await tg(token, 'sendMessage', { chat_id: adminId, text: `✅ <b>${emp.name}</b> ishga keldi — 🕐 ${t}`, parse_mode: 'HTML' })
 
       } else if (emp.pendingAction === 'checkout') {

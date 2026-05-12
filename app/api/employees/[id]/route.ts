@@ -7,10 +7,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   try {
     const { id } = await params
     const body = await req.json()
-    const emp = await prisma.employee.update({
-      where: { id },
-      data: { name: body.name, position: body.position ?? null, isActive: body.isActive },
-    })
+    const data: Record<string, unknown> = {}
+    if (body.name !== undefined) data.name = body.name
+    if (body.position !== undefined) data.position = body.position ?? null
+    if (body.isActive !== undefined) data.isActive = body.isActive
+    if (body.phone !== undefined) data.phone = body.phone.replace(/\D/g, '')
+    const emp = await prisma.employee.update({ where: { id }, data })
     return NextResponse.json(emp)
   } catch {
     return NextResponse.json({ error: 'Failed' }, { status: 500 })
