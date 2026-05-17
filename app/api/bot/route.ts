@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import {
   haversineMeters, getTashkentDate, formatTime,
-  sendMenu, askLocation, sendMsg, answerCb, getSettings,
+  sendMenu, askLocation, sendMsg, getSettings,
 } from '@/lib/bot'
 
 export const dynamic = 'force-dynamic'
@@ -197,25 +197,25 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true })
     }
 
-    // Inline tugmalar
-    if (update.callback_query) {
-      const tgId = String(update.callback_query.from.id)
-      const chatId = update.callback_query.message.chat.id
-      const action = update.callback_query.data as string
-      await answerCb(token, update.callback_query.id)
+    // Doimiy tugmalar: ✅ Keldim / 🚪 Ketdim
+    const msgText = update.message?.text
+    if (msgText === '✅ Keldim' || msgText === '🚪 Ketdim') {
+      const tgId = String(update.message.from.id)
+      const chatId = update.message.chat.id
 
       const emp = await prisma.employee.findUnique({ where: { telegramId: tgId } })
       if (!emp || !emp.isActive) {
-        await sendMsg(token, chatId, '❌ Avval /start bosing va telefon raqamingizni ulashing.')
+        await sendMenu(token, chatId, '❌ Avval /start bosing va telefon raqamingizni ulashing.')
         return NextResponse.json({ ok: true })
       }
-      if (action === 'checkin') {
+      if (msgText === '✅ Keldim') {
         await prisma.employee.update({ where: { id: emp.id }, data: { pendingAction: 'checkin' } })
         await askLocation(token, chatId, '📍 Kelishni tasdiqlash uchun lokatsiyangizni yuboring:')
-      } else if (action === 'checkout') {
+      } else {
         await prisma.employee.update({ where: { id: emp.id }, data: { pendingAction: 'checkout' } })
         await askLocation(token, chatId, '📍 Ketishni tasdiqlash uchun lokatsiyangizni yuboring:')
       }
+      return NextResponse.json({ ok: true })
     }
 
     return NextResponse.json({ ok: true })

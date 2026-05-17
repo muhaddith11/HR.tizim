@@ -59,10 +59,12 @@ export async function sendMenu(token: string, chatId: number | string, text: str
     text,
     parse_mode: 'HTML',
     reply_markup: {
-      inline_keyboard: [[
-        { text: '✅ Keldim', callback_data: 'checkin' },
-        { text: '🚪 Ketdim', callback_data: 'checkout' },
+      keyboard: [[
+        { text: '✅ Keldim' },
+        { text: '🚪 Ketdim' },
       ]],
+      resize_keyboard: true,
+      persistent: true,
     },
   })
 }
@@ -85,7 +87,6 @@ export async function sendMsg(token: string, chatId: number | string, text: stri
     chat_id: chatId,
     text,
     parse_mode: 'HTML',
-    reply_markup: { remove_keyboard: true },
   })
 }
 
