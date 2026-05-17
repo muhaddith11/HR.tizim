@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import {
   haversineMeters, getTashkentDate, formatTime,
-  sendMenu, askLocation, sendMsg, getSettings,
+  sendMenu, askLocation, sendMsg, answerCb, getSettings,
 } from '@/lib/bot'
 
 export const dynamic = 'force-dynamic'
@@ -197,6 +197,42 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true })
     }
 
+    // Bormayman tugmasi
+    if (update.message?.text === '🚫 Bormayman') {
+      const tgId = String(update.message.from.id)
+      const chatId = update.message.chat.id
+
+      const emp = await prisma.employee.findUnique({ where: { telegramId: tgId } })
+      if (!emp || !emp.isActive) {
+        await sendMenu(token, chatId, '❌ Avval /start bosing.')
+        return NextResponse.json({ ok: true })
+      }
+
+      const today = getTashkentDate()
+      const existing = await prisma.attendance.findFirst({
+        where: { employeeId: emp.id, workDate: today },
+      })
+      if (existing) {
+        await sendMenu(token, chatId, '⚠️ Bugun allaqachon davomat belgilangan.')
+        return NextResponse.json({ ok: true })
+      }
+
+      await tg(token, 'sendMessage', {
+        chat_id: chatId,
+        text: '📝 <b>Sababni tanlang:</b>',
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🤒 Kasalman', callback_data: 'abs_sick' }],
+            [{ text: '🏖️ Dam olyapman', callback_data: 'abs_vacation' }],
+            [{ text: '💼 Ishim bor', callback_data: 'abs_busy' }],
+            [{ text: '✍️ Boshqa sabab', callback_data: 'abs_other' }],
+          ],
+        },
+      })
+      return NextResponse.json({ ok: true })
+    }
+
     // Doimiy tugmalar: ✅ Keldim / 🚪 Ketdim
     const msgText = update.message?.text
     if (msgText === '✅ Keldim' || msgText === '🚪 Ketdim') {
@@ -216,6 +252,48 @@ export async function POST(req: Request) {
         await askLocation(token, chatId, '📍 Ketishni tasdiqlash uchun lokatsiyangizni yuboring:')
       }
       return NextResponse.json({ ok: true })
+    }
+
+    // Sabab tanlash (inline callback)
+    if (update.callback_query) {
+      const tgId = String(update.callback_query.from.id)
+      const chatId = update.callback_query.message.chat.id
+      const action = update.callback_query.data as string
+      await answerCb(token, update.callback_query.id)
+
+      const absenceReasons: Record<string, string> = {
+        abs_sick:     '🤒 Kasalman',
+        abs_vacation: '🏖️ Dam olyapman',
+        abs_busy:     '💼 Ishim bor',
+        abs_other:    '✍️ Boshqa sabab',
+      }
+
+      if (absenceReasons[action]) {
+        const emp = await prisma.employee.findUnique({ where: { telegramId: tgId } })
+        if (!emp || !emp.isActive) return NextResponse.json({ ok: true })
+
+        const today = getTashkentDate()
+        const reason = absenceReasons[action]
+
+        await prisma.attendance.create({
+          data: {
+            employeeId: emp.id,
+            workDate: today,
+            absenceReason: reason,
+          },
+        })
+
+        await sendMenu(token, chatId,
+          `✅ <b>Qayd etildi!</b>\n\n👤 ${emp.name}\n📅 ${today}\n📝 Sabab: ${reason}\n\nTez tuzalib keling! 🙏`)
+
+        if (adminId) {
+          await tg(token, 'sendMessage', {
+            chat_id: adminId,
+            text: `🚫 <b>${emp.name}</b> bugun kelmaydi\n📝 Sabab: ${reason}`,
+            parse_mode: 'HTML',
+          })
+        }
+      }
     }
 
     return NextResponse.json({ ok: true })

@@ -5,7 +5,7 @@ import { Users, Clock, Settings, Plus, Trash2, RefreshCw, ChevronLeft, ChevronRi
 
 type Tab = 'davomat' | 'xodimlar' | 'sozlamalar'
 type Employee = { id: string; phone: string; telegramId: string | null; name: string; position: string | null; isActive: boolean }
-type AttendanceRow = { id: string; workDate: string; checkIn: string | null; checkOut: string | null; isLate: boolean; employee: { name: string; position: string | null } }
+type AttendanceRow = { id: string; workDate: string; checkIn: string | null; checkOut: string | null; isLate: boolean; absenceReason: string | null; employee: { name: string; position: string | null } }
 
 function getTodayUz() {
   return new Date(Date.now() + 5 * 3600000).toISOString().split('T')[0]
@@ -255,7 +255,9 @@ export default function Dashboard() {
                         <td className="px-5 py-3.5 font-mono text-blue-400">{fmt(a.checkOut)}</td>
                         <td className="px-5 py-3.5 font-mono text-slate-400 hidden md:table-cell">{duration(a.checkIn, a.checkOut)}</td>
                         <td className="px-5 py-3.5">
-                          {!a.checkIn ? (
+                          {a.absenceReason ? (
+                            <span className="text-xs px-2.5 py-1 bg-red-900/40 text-red-400 rounded-full border border-red-500/30" title={a.absenceReason}>{a.absenceReason}</span>
+                          ) : !a.checkIn ? (
                             <span className="text-xs px-2.5 py-1 bg-slate-700 text-slate-400 rounded-full">Kelmagan</span>
                           ) : a.isLate && !a.checkOut ? (
                             <span className="text-xs px-2.5 py-1 bg-amber-500/20 text-amber-400 rounded-full border border-amber-500/30">⚠ Kechikdi</span>

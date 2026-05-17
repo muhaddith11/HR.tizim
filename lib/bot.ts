@@ -59,10 +59,10 @@ export async function sendMenu(token: string, chatId: number | string, text: str
     text,
     parse_mode: 'HTML',
     reply_markup: {
-      keyboard: [[
-        { text: '✅ Keldim' },
-        { text: '🚪 Ketdim' },
-      ]],
+      keyboard: [
+        [{ text: '✅ Keldim' }, { text: '🚪 Ketdim' }],
+        [{ text: '🚫 Bormayman' }],
+      ],
       resize_keyboard: true,
       persistent: true,
     },
