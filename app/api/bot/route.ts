@@ -167,7 +167,7 @@ export async function POST(req: Request) {
         const lateMsg = isLate
           ? `\n⚠️ Kechikish: <b>${Math.floor(lateMinutes / 60) > 0 ? `${Math.floor(lateMinutes / 60)} soat ` : ''}${lateMinutes % 60} daqiqa</b>`
           : '\n✅ O\'z vaqtida keldingiz!'
-        await sendMsg(token, chatId, `✅ <b>Kelish belgilandi!</b>\n\n👤 ${emp.name}\n🕐 ${t} | 📅 ${today}${lateMsg}`)
+        await sendMenu(token, chatId, `✅ <b>Kelish belgilandi!</b>\n\n👤 ${emp.name}\n🕐 ${t} | 📅 ${today}${lateMsg}`)
         if (adminId) await tg(token, 'sendMessage', { chat_id: adminId, text: `✅ <b>${emp.name}</b> ishga keldi — 🕐 ${t}`, parse_mode: 'HTML' })
 
       } else if (emp.pendingAction === 'checkout') {
@@ -190,7 +190,7 @@ export async function POST(req: Request) {
         const diff = now.getTime() - (open.checkIn?.getTime() ?? now.getTime())
         const h = Math.floor(diff / 3600000)
         const m = Math.floor((diff % 3600000) / 60000)
-        await sendMsg(token, chatId, `🚪 <b>Ketish belgilandi!</b>\n\n👤 ${emp.name}\n🕐 Keldi: ${ci} | Ketdi: ${co}\n⏱ Ishladi: ${h}s ${m}d\n\nSog' bo'ling! 👋`)
+        await sendMenu(token, chatId, `🚪 <b>Ketish belgilandi!</b>\n\n👤 ${emp.name}\n🕐 Keldi: ${ci} | Ketdi: ${co}\n⏱ Ishladi: ${h}s ${m}d\n\nSog' bo'ling! 👋`)
         if (adminId) await tg(token, 'sendMessage', { chat_id: adminId, text: `🚪 <b>${emp.name}</b> ketdi — 🕐 ${co} | ⏱ ${h}s ${m}d`, parse_mode: 'HTML' })
       }
 
